@@ -20,6 +20,7 @@
 #define BGM1_GROUP NA_GROUP3 // second bgm group, swapped with first for crossfade
 #define FTR_INST_GROUP NA_GROUP2 // for furniture instruments but also Haniwa (Gyroids)?
 #define VOICE_GROUP NA_GROUP4 // group for animalese vocals
+#define TRG_SLOT_COUNT 6
 
 typedef struct SOU_LEV_ONGEN_DATA {
     u8 _00;
@@ -357,7 +358,7 @@ const SOU_SE_FADE sou_se_fade_init = {
 };
 
 SOU_LS_STACK sou_ls_stack[6];
-SOU_TRG_SE sou_trg_se[6];
+SOU_TRG_SE sou_trg_se[16];
 SOU_VOICE_SE sou_voice_se[2];
 SOU_LEV_SE sou_lev_se[6];
 SOU_LEV_ONGEN_DATA sou_lev_ongen_data[4];
@@ -794,7 +795,12 @@ f32 distance2vol4MD(f32 distance) {
 }
 
 void Sou_VoiceStart(u8 subtrack, u8 b) {
+    sou_trg_se[subtrack]._1D = 0;
     NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(VOICE_GROUP, subtrack, 0, b);
+}
+
+static inline void Sou_ResetTrgSlot(u8 i) {
+    sou_trg_se[i] = sou_trg_se_init;
 }
 
 void Sou_TrgStart(u16 id, f32 volume, f32 optVolume, f32 freqScale, u8 pan, u8 reverb, f32 distance) {
@@ -865,20 +871,37 @@ void Sou_TrgStart(u16 id, f32 volume, f32 optVolume, f32 freqScale, u8 pan, u8 r
         return;
     }
 
-    // Check if only one of these can play at a time
-    if (singleton) {
-        for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
-            if (id == sou_trg_se[i].id) {
-                return;
-            }
+/* Prevent duplicate spam for singleton OR rapid walk sounds */
+for (i = 0; i < TRG_SLOT_COUNT; i++) {
+
+    if (sou_trg_se[i].id == id) {
+
+        /* hard singleton sounds */
+        if (singleton) {
+            return;
+        }
+
+        /*
+         * Footstep / train movement spam prevention.
+         * If same sound started recently, ignore retrigger.
+         */
+        if (sou_trg_se[i].frames < 10) {
+            return;
         }
     }
+}
 
-    for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
-        if (sou_trg_se[i].id == 0) {
+subtrack = 0xFF;
+found_free = FALSE;
+
+/* Find completely free slot */
+    for (i = 0; i < TRG_SLOT_COUNT; i++) {
+        s8 p5 = Nap_ReadSubPort(SE_GROUP, i, 5);
+
+        if (sou_trg_se[i].id == 0 && p5 == 0) {
             subtrack = i;
-            i = ARRAY_COUNT(sou_trg_se);
             found_free = TRUE;
+            break;
         }
     }
 
@@ -896,13 +919,16 @@ void Sou_TrgStart(u16 id, f32 volume, f32 optVolume, f32 freqScale, u8 pan, u8 r
 #endif
 
     if (found_free == TRUE) {
-        sou_trg_se[subtrack].id = id;
-        sou_trg_se[subtrack].priority = TRGPRIO[se_idx_lo];
-        sou_trg_se[subtrack].frames = 1;
-        sou_trg_se[subtrack].volume = volume;
-        sou_trg_se[subtrack].optVolume = optVolume;
-        sou_trg_se[subtrack].freqScale = freqScale;
-        sou_trg_se[subtrack].pan = pan;
+Sou_ResetTrgSlot(subtrack);
+
+sou_trg_se[subtrack].id = id;
+sou_trg_se[subtrack].priority = TRGPRIO[se_idx_lo];
+sou_trg_se[subtrack].frames = 1;
+sou_trg_se[subtrack]._1D = 0;
+sou_trg_se[subtrack].volume = volume;
+sou_trg_se[subtrack].optVolume = optVolume;
+sou_trg_se[subtrack].freqScale = freqScale;
+sou_trg_se[subtrack].pan = pan;
         if (reverb) {
             sou_trg_se[subtrack].reverbVolume = reverb;
         } else {
@@ -913,13 +939,12 @@ void Sou_TrgStart(u16 id, f32 volume, f32 optVolume, f32 freqScale, u8 pan, u8 r
                     reverb = 50;
                 }
             }
-            if (do_echo && sou_trg_se[subtrack].echo) {
-                reverb = 40;
-            } else {
-                reverb = 0;
-            }
+if (do_echo) {
+    reverb = 40;
+}
             sou_trg_se[subtrack].reverbVolume = reverb;
         }
+        sou_trg_se[subtrack]._1D = 0;
         NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 0, se_idx_lo);
         NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 1, se_idx_hi);
 #ifdef TARGET_PC
@@ -928,35 +953,89 @@ void Sou_TrgStart(u16 id, f32 volume, f32 optVolume, f32 freqScale, u8 pan, u8 r
         return;
     }
 
-    // find sfx that has existed for longest time and use that since none are free
-    rand = 0;
-    for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
-        if (sou_trg_se[i].frames > rand) {
-            rand = sou_trg_se[i].frames;
-            subtrack = i;
-        }
+/* No free slot found: choose eviction candidate */
+
+subtrack = 0xFF;
+rand = 0;
+
+for (i = 0; i < TRG_SLOT_COUNT; i++) {
+
+    s8 p5 = Nap_ReadSubPort(SE_GROUP, i, 5);
+
+    /* prevent duplicate spam */
+    if (sou_trg_se[i].id == id) {
+        sou_trg_se[i].frames = 0;
+        return;
     }
 
-    if (TRGPRIO[se_idx_lo] >= sou_trg_se[subtrack].priority) {
-#ifdef TARGET_PC
-        printf("[TRG_SE] EVICT slot %d (old=0x%04X) for 0x%04X\n", subtrack, sou_trg_se[subtrack].id, id);
-#endif
-        sou_trg_se[subtrack].id = id;
-        sou_trg_se[subtrack].priority = TRGPRIO[se_idx_lo];
-        sou_trg_se[subtrack].frames = 1;
-        sou_trg_se[subtrack].volume = volume;
-        sou_trg_se[subtrack].optVolume = optVolume;
-        sou_trg_se[subtrack].freqScale = freqScale;
-        sou_trg_se[subtrack].pan = pan;
-        NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 0, se_idx_lo);
-        NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 1, se_idx_hi);
+    /* only evict ACTIVE oldest sounds */
+    if (p5 && sou_trg_se[i].frames > rand) {
+        rand = sou_trg_se[i].frames;
+        subtrack = i;
     }
+}
+
+/* CRITICAL FIX: avoid subtrack == -1 / slot 255 corruption */
+if (subtrack == 0xFF) {
 #ifdef TARGET_PC
-    else {
-        printf("[TRG_SE] DROPPED 0x%04X prio=%d < slot %d prio=%d (0x%04X)\n",
-            id, TRGPRIO[se_idx_lo], subtrack, sou_trg_se[subtrack].priority, sou_trg_se[subtrack].id);
-    }
+    printf("[TRG_SE] FAILED EVICT for 0x%04X\n", id);
 #endif
+    return;
+}
+
+/* only evict if new sound priority is >= old one */
+if (TRGPRIO[se_idx_lo] >= sou_trg_se[subtrack].priority) {
+
+#ifdef TARGET_PC
+    printf("[TRG_SE] EVICT slot %d old=0x%04X new=0x%04X\n",
+        subtrack,
+        sou_trg_se[subtrack].id,
+        id);
+#endif
+
+    Sou_ResetTrgSlot(subtrack);
+
+    sou_trg_se[subtrack].id = id;
+    sou_trg_se[subtrack].priority = TRGPRIO[se_idx_lo];
+    sou_trg_se[subtrack].frames = 1;
+    sou_trg_se[subtrack]._1D = 0;
+    sou_trg_se[subtrack].volume = volume;
+    sou_trg_se[subtrack].optVolume = optVolume;
+    sou_trg_se[subtrack].freqScale = freqScale;
+    sou_trg_se[subtrack].pan = pan;
+
+    if (reverb) {
+        sou_trg_se[subtrack].reverbVolume = reverb;
+    } else {
+        if (do_reverb) {
+            mask = (u16)(distance);
+            reverb = mask >> 3;
+
+            if (reverb > 50) {
+                reverb = 50;
+            }
+        }
+
+if (do_echo) {
+    reverb = 40;
+}
+
+        sou_trg_se[subtrack].reverbVolume = reverb;
+    }
+
+    sou_trg_se[subtrack]._1D = 0;
+
+    NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 0, se_idx_lo);
+    NA_COMMAND_AUDIO_SUBTRACK_SET_PORT(SE_GROUP, subtrack, 1, se_idx_hi);
+
+#ifdef TARGET_PC
+    printf("[TRG_ALLOC] id=0x%04X slot=%d lo=%d hi=%d\n",
+        id,
+        subtrack,
+        se_idx_lo,
+        se_idx_hi);
+#endif
+    }
 }
 
 void Sou_SpecialRoutine00() {
@@ -999,10 +1078,21 @@ void Sou_SpecialRoutine03() {
 void Sou_TrgEndCheck() {
     u8 i = 0;
     u8 unused = 0;
-    for (i = 0; i < 6; i++) {
-        if (sou_trg_se[i].id != 0) {
+    for (i = 0; i < TRG_SLOT_COUNT; i++) {
+            s8 p5 = 0;
+
+
+if ((sou_trg_se[i].id == 0x4028 ||
+     sou_trg_se[i].id == 0x4029) &&
+    sou_trg_se[i]._1D) {
+    continue;
+}
+
+
+
+            if (sou_trg_se[i].id != 0) {
             sou_trg_se[i].frames++;
-            s8 p5 = Nap_ReadSubPort(SE_GROUP, i, 5);
+            p5 = Nap_ReadSubPort(SE_GROUP, i, 5);
 #ifdef TARGET_PC
             /* Log port5 transitions for active slots */
             if (p5 != 0 && !sou_trg_se[i]._1D) {
@@ -1014,18 +1104,17 @@ void Sou_TrgEndCheck() {
                     i, sou_trg_se[i].id, sou_trg_se[i].frames);
             }
             /* Force-free stuck slots where sequencer never started the note */
-            if (sou_trg_se[i].frames > 30 && !sou_trg_se[i]._1D && !p5) {
-                printf("[TRG_P5] slot %d id=0x%04X STUCK (port5 never set, %u frames) -> FORCE FREE\n",
-                    i, sou_trg_se[i].id, sou_trg_se[i].frames);
-                sou_trg_se[i].id = 0;
-                sou_trg_se[i].frames = 0;
-                sou_trg_se[i]._1D = 0;
-                continue;
-            }
+
 #endif
-            if (!p5 && sou_trg_se[i]._1D) {
-                sou_trg_se[i].id = 0;
-                sou_trg_se[i].frames = 0;
+            if (!p5) {
+                if (sou_trg_se[i]._1D || sou_trg_se[i].frames > 30) {
+            #ifdef TARGET_PC
+                    printf("[TRG_FREE] slot=%d id=0x%04X forced free\n",
+                        i,
+                        sou_trg_se[i].id);
+            #endif
+                    Sou_ResetTrgSlot(i);
+                }
             }
         }
         sou_trg_se[i]._1D = Nap_ReadSubPort(SE_GROUP, i, 5);
@@ -1801,7 +1890,7 @@ void Sou_InitAudio() {
     sou_num_org = 0;
     sou_num2_org = 0;
     sou_num3_org = 0;
-    for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
+    for (i = 0; i < TRG_SLOT_COUNT; i++) {
         sou_trg_se[i] = sou_trg_se_init;
     }
     for (i = 0; i < ARRAY_COUNT(sou_voice_se); i++) {
@@ -1875,7 +1964,7 @@ void Na_GameFrame() {
             Sou_SeFadeoutRoutine();
             Sou_SeFadeinRoutine();
             Sou_TrgEndCheck();
-            for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
+            for (i = 0; i < TRG_SLOT_COUNT; i++) {
                 Sou_TrgMake(i);
             }
             for (i = 0; i < ARRAY_COUNT(sou_voice_se); i++) {
@@ -3932,7 +4021,7 @@ extern u8 Na_RoomIncectPos(int insectID, u8 index, u16 angle, f32 distance) {
                 sou_room_ins[i]._05 = 0;
                 sou_room_ins[i]._06 = r27;
                 i = ARRAY_COUNT(sou_room_ins);
-                for (j = 0; j < ARRAY_COUNT(sou_trg_se); j++) {
+                for (j = 0; j < TRG_SLOT_COUNT; j++) {
                     for (r25 = 0; r25 < ARRAY_COUNT(SE_ROOM_INS_DATA); r25++) {
                         if (sou_trg_se[j].id == SE_ROOM_INS_DATA[r25]) {
                             r20 = 1;
@@ -4007,7 +4096,7 @@ extern void Na_FurnitureInstPos(int id, u16 angle, f32 distance) {
 extern void Na_TrgSeEcho(u8 echo) {
     u8 i = 0;
     u8 unused = 0;
-    for (i = 0; i < ARRAY_COUNT(sou_trg_se); i++) {
+    for (i = 0; i < TRG_SLOT_COUNT; i++) {
         sou_trg_se[i].echo = echo;
     }
 }

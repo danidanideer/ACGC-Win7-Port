@@ -6,9 +6,9 @@
 #include "m_rcp.h"
 
 
-static void aTHT1_actor_ct(ACTOR* actor, GAME*);
-static void aTHT1_actor_move(ACTOR* actor, GAME*);
-static void aTHT1_actor_draw(ACTOR* actor, GAME*);
+static void aTHT1_actor_ct(ACTOR* actor, GAME* game);
+static void aTHT1_actor_move(ACTOR* actor, GAME* game);
+static void aTHT1_actor_draw(ACTOR* actor, GAME* game);
 static void aTHT1_setupAction(ACTOR*, int);
 
 ACTOR_PROFILE T_Hat1_Profile = {
@@ -27,7 +27,7 @@ ACTOR_PROFILE T_Hat1_Profile = {
 
 extern Gfx crw_hat1_body_model[];
 
-static void aTHT1_actor_ct(ACTOR* actor, GAME*){
+static void aTHT1_actor_ct(ACTOR* actor, GAME* game){
 
     aTHT1_setupAction(actor,4);
 }
@@ -50,7 +50,7 @@ static void aTHT1_setupAction(ACTOR*actor, int action){
 
 }
 
-static void aTHT1_actor_move(ACTOR* actor, GAME*){
+static void aTHT1_actor_move(ACTOR* actor, GAME* game){
     HAT1_ACTOR* hat = (HAT1_ACTOR*)actor;
 
     if(hat->tools_class.work0 != hat->current_id){

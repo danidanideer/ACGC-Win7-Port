@@ -56,7 +56,7 @@ BOOL DFX_SetFxLine(u8 idx, s16* circularBufferBase, FxlineConfig* config)
  * Address:	........
  * Size:	0000E0
  */
-void DFX_ChangeFxLineParam(u8, u8, u32)
+void DFX_ChangeFxLineParam(u8 a, u8 b, u32 c)
 {
 	// UNUSED FUNCTION
 }

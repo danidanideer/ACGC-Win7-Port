@@ -6,9 +6,9 @@
 #include "m_rcp.h"
 
 
-static void aTBG2_actor_ct(ACTOR* actor, GAME*);
-static void aTBG2_actor_move(ACTOR* actor, GAME*);
-static void aTBG2_actor_draw(ACTOR* actor, GAME*);
+static void aTBG2_actor_ct(ACTOR* actor, GAME* game);
+static void aTBG2_actor_move(ACTOR* actor, GAME* game);
+static void aTBG2_actor_draw(ACTOR* actor, GAME* game);
 static void aTBG2_setupAction(ACTOR*, int);
 
 ACTOR_PROFILE T_Bag2_Profile = {
@@ -27,7 +27,7 @@ ACTOR_PROFILE T_Bag2_Profile = {
 
 extern Gfx crw_bag2_body_model[];
 
-static void aTBG2_actor_ct(ACTOR* actor, GAME*){
+static void aTBG2_actor_ct(ACTOR* actor, GAME* game){
 
     aTBG2_setupAction(actor,4);
 }
@@ -50,7 +50,7 @@ static void aTBG2_setupAction(ACTOR*actor, int action){
 
 }
 
-static void aTBG2_actor_move(ACTOR* actor, GAME*){
+static void aTBG2_actor_move(ACTOR* actor, GAME* game){
     BAG2_ACTOR* bag = (BAG2_ACTOR*)actor;
 
     if(bag->tools_class.work0 != bag->current_id){
