@@ -1,12 +1,30 @@
-# Animal Crossing PC Port
+# Animal Crossing Windows 7 Port
 
-A native PC port of Animal Crossing (GameCube) built on top of the [ac-decomp](https://github.com/ACreTeam/ac-decomp) decompilation project.
+A modified fork of [ACGC-PC-Port](https://github.com/flyngmt/ACGC-PC-Port) made by FlyingMeta, focused on making it work with older Windows systems, especially my trashy Windows 7(64-bits) laptop from 2010.
 
-The game's original C code runs natively on x86, with a custom translation layer replacing the GameCube's GX graphics API with OpenGL 3.3.
+This project is based on the [ACreTeam Decompilation Project](https://github.com/ACreTeam/ac-decomp), the original GameCube code runs natively on x86 PCs, with a custom translation layer replacing the GameCube's GX graphics API with an OpenGL renderer.
+
+Most of the heavy lifting was done by the original PC port authors, this fork mainly exists as a personal continuation with compatibility fixes, build changes, debugging tweaks, and various experiments.
 
 This repository does not contain any game assets or assembly whatsoever. An existing copy of the game is required.
 
+## What’s Different From the Original Port?
+
+While being **far** from perfect, with some small visual glitches, it's completely playable and enjoyable!
+This fork includes various changes and experiments, including:
+
+- Windows 7 compatibility improvements
+- Build system changes
+- Rendering/audio tweaks
+- Debugging utilities
+- General engine tinkering and fixes
+- Miscellaneous experiments and cleanup
+
+(Some changes were made incrementally over time and are not fully documented.)
+
 Supported versions: GAFE01_00: Rev 0 (USA)
+
+**It works! And that's what matters..**
 
 ## Quick Start (Pre-built Release)
 
