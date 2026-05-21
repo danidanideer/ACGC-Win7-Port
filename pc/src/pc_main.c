@@ -8,6 +8,21 @@
 #include "pc_disc.h"
 #include "pc_typing.h"
 #include "pc_pause_menu.h"
+#include <windows.h>
+
+static void enable_dpi_awareness(void)
+{
+    HMODULE user32 = LoadLibraryA("user32.dll");
+    if (!user32) return;
+
+    BOOL (WINAPI *SetDPIAware)(void) =
+        (BOOL (WINAPI*)(void))GetProcAddress(user32, "SetProcessDPIAware");
+
+    if (SetDPIAware)
+        SetDPIAware();
+}
+
+
 
 /* prefer discrete GPU on laptops */
 #ifdef _WIN32
@@ -53,6 +68,11 @@ static LONG WINAPI pc_veh_handler(PEXCEPTION_POINTERS ep) {
             pc_last_crash_data_addr = 0;
         jmp_buf* buf = pc_active_jmpbuf;
         pc_active_jmpbuf = NULL;
+        printf("CRASH!\n");
+        printf("Exception code: %lu\n", code);
+        printf("Crash address: 0x%X\n", pc_last_crash_addr);
+        printf("Data address: 0x%X\n", pc_last_crash_data_addr);
+
         longjmp(*buf, 1);
     }
     return EXCEPTION_CONTINUE_SEARCH;
@@ -106,7 +126,10 @@ unsigned int pc_crash_get_addr(void) {
 
 void pc_platform_init(void) {
 #ifdef _WIN32
-    SetProcessDPIAware();
+    //SetProcessDPIAware();
+    
+enable_dpi_awareness();
+
 
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
@@ -114,9 +137,12 @@ void pc_platform_init(void) {
         exit(1);
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+/*     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3); */
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+
+    // SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #ifdef PC_ENHANCEMENTS
@@ -162,6 +188,8 @@ void pc_platform_init(void) {
         SDL_Quit();
         exit(1);
     }
+    printf("Renderer: %s\n", glGetString(GL_RENDERER));
+    printf("Version: %s\n", glGetString(GL_VERSION));
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 
@@ -291,7 +319,7 @@ int main(int argc, char* argv[]) {
 
     /* Redirect stdout/stderr to NUL unless verbose — unbuffered terminal writes
      * are extremely slow on Windows and tank FPS. */
-    if (!g_pc_verbose) {
+/*     if (!g_pc_verbose) {
 #ifdef _WIN32
         freopen("NUL", "w", stdout);
         freopen("NUL", "w", stderr);
@@ -302,7 +330,12 @@ int main(int argc, char* argv[]) {
     } else {
         setvbuf(stdout, NULL, _IONBF, 0);
         setvbuf(stderr, NULL, _IONBF, 0);
-    }
+    } */
+
+    /* TEMP DEBUG */
+setvbuf(stdout, NULL, _IONBF, 0);
+setvbuf(stderr, NULL, _IONBF, 0);
+printf("main started\n");
 
     /* exe image range for seg2k0 — BSS can overlap N64 segment addresses */
 #ifdef _WIN32

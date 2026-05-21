@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.16)
 project(ac_pc C CXX)
 
 set(CMAKE_C_STANDARD 11)
@@ -40,9 +40,7 @@ add_compile_definitions(
     _LANGUAGE_C    # Required for N64 GBI/ultratypes headers
     PC_ENHANCEMENTS   # Optional visual improvements (MSAA, etc). Remove to get pure PC port.
     KEYBOARD_TYPING   # Physical keyboard typing in text editor. Remove for platforms without keyboards.
-)
-
-# Common compiler flags (applied to all sources)
+)# Common compiler flags (applied to all sources)
 if(MSVC)
     add_compile_options(/W0)
 else()
@@ -50,9 +48,13 @@ else()
         -fno-strict-aliasing
         -fwrapv
     )
-endif()
 
-# =============================================================================
+    # Force SSE math on 32-bit x86
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "i[3-6]86" OR
+       (CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86|X86"))
+        add_compile_options(-msse2 -mfpmath=sse)
+    endif()
+endif()#=============================================================================
 # Include paths
 # =============================================================================
 set(DECOMP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
@@ -416,17 +418,17 @@ add_executable(ac_pc
 
 # Link SDL2 without SDL2main (we define SDL_MAIN_HANDLED)
 if(TARGET SDL2::SDL2)
-    target_link_libraries(ac_pc glad SDL2::SDL2)
+    target_link_libraries(ac_pc user32 glad SDL2::SDL2)
 else()
     list(FILTER SDL2_LIBRARIES EXCLUDE REGEX "SDL2main")
-    target_link_libraries(ac_pc glad ${SDL2_LIBRARIES})
+    target_link_libraries(ac_pc user32 glad ${SDL2_LIBRARIES})
 endif()
 
 if(WIN32)
-    target_link_libraries(ac_pc opengl32 winmm imm32 version setupapi)
+    target_link_libraries(ac_pc user32 opengl32 winmm imm32 version setupapi)
 else()
     find_package(OpenGL REQUIRED)
-    target_link_libraries(ac_pc OpenGL::GL dl pthread m)
+    target_link_libraries(ac_pc user32 OpenGL::GL dl pthread m)
 endif()
 
 set_target_properties(ac_pc PROPERTIES
@@ -479,9 +481,7 @@ endif()
 
 # Hide console window on Windows (GUI subsystem)
 # Use -DPC_CONSOLE=ON to keep the console visible for debugging
-if(WIN32 AND NOT PC_CONSOLE)
-    target_link_options(ac_pc PRIVATE -mwindows)
-endif()
+ 
 
 # =============================================================================
 # Install rules (cmake --install . --prefix <dest>)

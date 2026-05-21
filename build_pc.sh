@@ -28,7 +28,9 @@ cd "$BUILD_DIR"
 
 if [ ! -f Makefile ]; then
     echo "=== Configuring CMake ==="
-    cmake .. -G "MinGW Makefiles"
+    cmake .. -G "MinGW Makefiles" \
+  -DCMAKE_C_FLAGS="-DWINVER=0x0601 -D_WIN32_WINNT=0x0601" \
+  -DCMAKE_CXX_FLAGS="-DWINVER=0x0601 -D_WIN32_WINNT=0x0601"
 fi
 
 # --- Build ---
