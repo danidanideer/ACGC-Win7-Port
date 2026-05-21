@@ -136,7 +136,7 @@ This project would not be possible without the work of the [ACreTeam](https://gi
 
 ## AI Notice
 
-AI tools such as Claude were used in this project (PC port code only).
+AI tools such as Claude were used in this project (Original PC port code only).
 
 ## FAQ
 
